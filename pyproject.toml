@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "discord_python_SniperThrilla"
-version = "0.0.5"
+version = "0.0.6"
 authors = [
   { name="Jayden Young", email="jayden.tyler.young@gmail.com" },
 ]
@@ -15,6 +15,11 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
+]
+
+[tool.hatch.build]
+exclude = [
+    "main.py"
 ]
 
 [project.urls]
