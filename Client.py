@@ -255,6 +255,16 @@ class Client:
                                         #command.function(self, message_data['d']['id'], message_data['d']['token'])
                                         message_callback.function(client=self, interaction=InteractionResponder.Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
 
+                            if message_data['d']['type'] == 5:
+                                # An modal interaction was received!
+                                self.logger.debug("Received MODAL interaction.")
+                                # Determines which function to callback to for this command.
+                                for message_callback in self.message_callbacks:
+                                    if message_callback.custom_id == message_data['d']['data']['custom_id']:
+                                        #command.function(self, message_data['d']['id'], message_data['d']['token'])
+                                        self.logger.debug("Found MODAL callback function.")
+                                        message_callback.function(client=self, interaction=InteractionResponder.Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
+
                     if message_data['op'] == 1:
                         # The application should immediately send a heartbeat.
                         await self.ws.send_json({"op":1, "d":self.last_sequence})
@@ -431,6 +441,16 @@ class Client:
         """
         command = ApplicationCommands.ApplicationCommand(name, type, description, function, parameters)
         self.commands.append(command)
+
+    def AppCommand(self, name, type, description, parameters = []):
+        def decorator(fun):
+            # Register the command here
+            command = ApplicationCommands.ApplicationCommand(name, type, description, fun, parameters)
+            self.commands.append(command)
+            def wrapper(*args):
+                fun(*args)
+            return wrapper
+        return decorator
 
     def getRegisteredCommands(self) -> List[ApplicationCommands.ApplicationCommand]:
         """

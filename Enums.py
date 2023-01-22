@@ -7,7 +7,7 @@ class ApplicationCommand(IntEnum):
     INTEGER = 4
     BOOLEAN = 5
     USER = 6
-    CHANNE = 7
+    CHANNEL = 7
     ROLE = 8
     MENTIONABLE = 9
     NUMBER = 10
@@ -26,3 +26,7 @@ class MenuType(IntEnum):
     ROLE_SELECT = 6
     MENTIONABLE_SELECT = 7
     CHANNEL_SELECT = 8
+
+class TextInputType(IntEnum):
+    SHORT = 1
+    PARAGRAPH = 2

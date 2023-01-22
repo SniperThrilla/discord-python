@@ -43,7 +43,8 @@ class Component():
 
         """
         self.client = client
-        self.custom_id = client.generateCustomID(custom_id)
+        #self.custom_id = client.generateCustomID(custom_id)
+        self.custom_id = custom_id
         self.callback_function = callback_function
         self.message_callback = ApplicationCommands.MessageComponentCallback(self.custom_id, self.callback_function)
 
@@ -166,7 +167,7 @@ class MenuOption():
 
 class SelectMenu(Component):
     """
-    The select menu  component. This is a dropdown list that can be used with messages. Using a menu_type of STRING_SELECT
+    The select menu component. This is a dropdown list that can be used with messages. Using a menu_type of STRING_SELECT
     or 3 will allow custom options. In this scenario, use in combination with a series of `MenuOption()`.
 
     """
@@ -181,7 +182,7 @@ class SelectMenu(Component):
 
     def __init__(self, custom_id, client, menu_type : int = 3, placeholder = "Select option...", min_values : int = 1, max_values : int= 1, callback=None) -> None:
         """
-        Creates a select menu  component. 
+        Creates a select menu component. 
 
         Parameters
         -------
@@ -202,7 +203,7 @@ class SelectMenu(Component):
         max_values: `int`
             The maximum amount of options that can be selected. Defaults to 1.
         callback: `function`
-            The function that is triggered whenever a user presses the button. Your
+            The function that is triggered whenever a user uses the menu. Your
             function **MUST** have the parameters client and interaction of type `Client.Client` and 
             `InteractionResponder.Interaction` respectively.
 
@@ -259,6 +260,78 @@ class SelectMenu(Component):
         return {"type": self.menu_type, "custom_id": self.custom_id, 
             "placeholder": self.placeholder, "min_values": self.min_values, "max_values": self.max_values}
 
+
+class TextInput(Component):
+    """
+    The text input component. This is a space for the user to type in text that will be
+    sent to the application.
+
+    """
+
+    style : int = 1
+    label : str = None
+    min_length : int = 0
+    max_length : int = 50
+    required : bool = True
+    value : str = None
+    placeholder : str = None
+
+    def __init__(self, custom_id, client, style, label, callback, min_length=0, max_length=50, required=True, value="placeholder", placeholder="Type here...") -> None:
+        """
+        Creates a text input component. These must be added to Modals.
+
+        Parameters
+        -------
+        custom_id: `str`
+            The custom id of your text input. This is provided whenever this text input is used, and is used
+            to identify that this text input was selected. It is randomised with a series of 20 characters,
+            followed by _ and your custom_id. This is not important as the library already handles the 
+            callback functions without this, but can be modified for more advanced control. (Max: 100 characters)
+        client: `Client.Client`
+            A link back to the main client class. This allows the generation of custom identifiers.
+        style: `int`
+            Determines what type of text input is created. Style 1 is a single-line input and style 2
+            is a multi-line input.
+        label: `str`
+            The text that is shown with the text input as the header. (Max: 45 characters)
+        callback: `function`
+            The function that is triggered whenever a user confirms the text input. Your
+            function **MUST** have the parameters client and interaction of type `Client.Client` and 
+            `InteractionResponder.Interaction` respectively.
+        min_length: `int`
+            The minimum length that can be entered. Defaults to 0. (Min: 0, Max: 4000 characters)
+        max_values: `int`
+            The maximum length that can be entered. Defaults to 50. (Min: 1, Max: 4000 characters)
+        required: `bool`
+            Determines whether the text input is required to be filled. Defaults to True.
+        value: `str`
+            The pre-filled value of this text input. Max 4000 characters.
+        placeholder: `str`
+            The text that is shown by default before any text is typed. Defaults to `Type here...`
+            (Max: 100 characters)
+
+        """
+        super().__init__(custom_id=custom_id, client=client, callback_function=callback)
+        self.style = style
+        self.label = label
+        self.min_length = min_length
+        self.max_length = max_length
+        self.required = required
+        self.value = value
+        self.placeholder = placeholder
+
+    def generateJSON(self):
+        """
+        Generates the JSON to be set in a HTTP request to the API endpoint for the text input.
+
+        Returns
+        -------
+        :class:`Dict[]`
+            A dictionary representing the values to be translated into JSON.
+
+        """
+        return {"type": 4, "custom_id": self.custom_id, "label": self.label, "style": self.style, "min_length": self.min_length,
+         "max_length": self.max_length, "value": self.value, "placeholder": self.placeholder, "required": self.required}
 
 
 class ActionRow():
@@ -523,6 +596,144 @@ class InteractionResponseText(InteractionResponse):
             "data": {
                 "content": self.text,
                 "flags": self.flag,
+                "components": new_json
+            }
+        }
+        #print(self.json)
+        return self.json
+
+class InteractionResponseModal(InteractionResponse):
+    """
+    Allows your application to respond to Interactions with a modal. This can be furthered by providing message 
+    components to provide further functionality such as text inputs. This is can be inputted into a `Message` and 
+    then added to the message queue to be sent to the discord API endpoint.
+
+    """
+
+    components : List[Component] = []
+    action_rows : List[ActionRow] = []
+    title : str = None
+    flag : int = 0
+    custom_id : str = None
+    client = None
+    message_callback = None
+
+    def __init__(self, interaction: Interaction, title : str, custom_id : str, client, callback) -> None:
+        """
+        Creates an InteractionResponseModal, which allows you to respond to an Interaction with a message,
+        and additionally, a variety of message components to provide further functionality.
+
+        Parameters
+        -------
+        interaction: `Interaction`
+            The interaction object provides the necessary information to respond to the interaction.
+        title: `str`
+            The base message that will be sent in the response.
+        custom_id: `str`
+            An identifier for this InteractionResponseModal which will be passed back to the application
+            whenever someone submits.
+        client: `Client.Client`
+            Necessary for registering the message callback function.
+        callback: `function`
+            The function that is run when the entire modal is submitted.
+
+        """
+        super().__init__(interaction=interaction, ephemeral=False)
+
+        self.title = title
+        self.custom_id = custom_id
+        self.action_rows = []
+        self.components = []
+        self.client = client
+
+
+        self.json = {
+            "type": Message.InteractionCallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
+            "data": {
+                "title": self.title,
+                "custom_id": self.custom_id
+            }
+        }
+
+        self.message_callback = ApplicationCommands.MessageComponentCallback(self.custom_id, callback)
+        client.message_callbacks.append(self.message_callback)
+
+    def addComponent(self, component : Component):
+        """
+        Adds a message component to the response. In almost every case, components should 
+        be added through ActionRows and this function should not be called.
+
+        Parameters
+        -------
+        component: `Component`
+            The component that you want to assign to this response. This can also be
+            any child class of the `Component` class, such as `Button` or `SelectMenu`,
+            although most message components must be within an ActionRow.
+
+        Warning
+        -------
+        Message components do not have message callbacks unless they are inside an ActionRow. If,
+        for some reason, you wish to have a component without an ActionRow, you must manually add
+        the component's message_callback to the client's list of message_callbacks.
+
+        """
+        self.components.append(component)
+        self.generateJSON()
+        
+    def addActionRow(self, action_row : ActionRow):
+        """
+        Adds an action row to the response. If you want to add components, you should
+        add them to an ActionRow, as most of them require that, and the ActionRow class
+        handles the callback functionality automatically.
+
+        Parameters
+        -------
+        action_row: `ActionRow`
+            The actionRow that you want to assign to this response. This ActionRow
+            can have components attached to it.
+
+        Warning
+        -------
+        Using ActionRows incorrectly can result in an error from discord. Check the
+        Discord Developer Portal for documentation on the limits for usage. An example 
+        of this is that you cannot have more than 5 ActionRows on a message.
+
+        """
+        self.action_rows.append(action_row)
+        self.generateJSON()
+
+    def generateJSON(self):
+        """
+        Generates the JSON to be set in a HTTP request to the API endpoint for the action row.
+        Iterates through every component directly on this InteractionResponseText and all 
+        ActionRows and their children components. This should be called prior to using the 
+        `self.json` value, as this causes it to be updated with all of your components 
+        included, however this is automatically run when a Component or ActionRow are added.
+
+        Warning
+        -------
+        This function must be called before attempting to get the JSON from this class.
+
+        Returns
+        -------
+        :class:`Dict[]`
+            A dictionary representing the values to be translated into JSON.
+
+        """
+
+        new_json = []
+        if len(self.action_rows) != 0 or len(self.components) != 0:
+            for action_row in self.action_rows:
+                #print(action_row.generateJSON())
+                new_json.append(action_row.generateJSON())
+            for component in self.components:
+                new_json.append(component.generateJSON())
+
+        self.json = {
+            "type": Message.InteractionCallbackType.MODAL,
+            "data": {
+                "title": self.title,
+                "custom_id": self.custom_id,
                 "components": new_json
             }
         }

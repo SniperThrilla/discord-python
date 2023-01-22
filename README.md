@@ -1,6 +1,13 @@
 # discord-python
 A discord API wrapper made for developing discord bots in python.
 
+## Features
+- Application Commands
+- Message Components
+- Modals
+- Automatic Gateway Integration
+- Low-level access to websockets
+
 ## Installation
 There is currently no package, so just grab the files and dump them in your directory.
 
@@ -22,6 +29,8 @@ client.run("BOT TOKEN HERE")
 
 ```python
 # For the /help command, the callback function is called help, but can be called anything.
+# Instead of registering the commands as above, you can use a decorator as follows.
+@client.AppCommand(name="help", type=Enums.ApplicationCommand.SUB_COMMAND, description="my epic description", parameters = [ApplicationCommands.ApplicationCommandOption(Enums.ApplicationCommand.STRING, "test", "description", True)])
 def help(client : Client.Client, interaction : InteractionResponder.Interaction):
 
     # Respond with a message saying, "Hello, World!"
