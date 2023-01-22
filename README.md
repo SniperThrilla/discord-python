@@ -9,7 +9,21 @@ A discord API wrapper made for developing discord bots in python.
 - Low-level access to websockets
 
 ## Installation
-There is currently no package, so just grab the files and dump them in your directory.
+
+Install the package using pip, or by cloning this repository.
+```
+# Linux/macOS
+python3 -m pip install -U discord_python_sniperthrilla
+
+# Windows
+py -3 -m pip install -U discord_python_sniperthrilla
+```
+
+Required packages
+```
+aiohttp
+requests
+```
 
 ## Usage
 
