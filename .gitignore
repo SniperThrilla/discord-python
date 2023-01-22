@@ -1,2 +1,5 @@
 # Ignore main.py
 /main.py
+
+# Ignore /_pycache_/
+/__pycache__/
