@@ -9,6 +9,7 @@ import logging
 from .Logger import CustomFormatter
 from .InteractionResponder import Interaction
 import string
+from .Enums import ApplicationCommandType
 
 from typing import (
     List
@@ -442,7 +443,7 @@ class Client:
         command = ApplicationCommand(name, type, description, function, parameters)
         self.commands.append(command)
 
-    def AppCommand(self, name, type, description, parameters = []):
+    def AppCommand(self, name, description, parameters = [], type=ApplicationCommandType.SUB_COMMAND):
         def decorator(fun):
             # Register the command here
             command = ApplicationCommand(name, type, description, fun, parameters)

@@ -27,41 +27,38 @@ requests
 
 ## Usage
 
+A simple bot with a /help slash command, which takes in a parameter and responds with text and a button.
 ```python
-# Create a client and add two commands.
-client = Client.Client()
+# Import relevant classes.
+import discord_python as dp
 
-# Register a new application command /help with a string parameter called "test" and responds with the function "help"
-client.registerApplicationCommand("help", Enums.ApplicationCommand.SUB_COMMAND, "my epic description", help, [ApplicationCommands.ApplicationCommandOption(3, "test", True)])
+# Create a client and add the commands.
+client = dp.Client()
 
-# Register another application command called /menu
-client.registerApplicationCommand("menu", Enums.ApplicationCommand.SUB_COMMAND, "testing select menus", menu)
+# For the /help command, the callback function is called help, but can be called anything.
+# Instead of registering the commands with the registerApplicationCommand() function, you can use a decorator as follows.
+@client.AppCommand(name="help", description="description", parameters = [dp.ApplicationCommandOption(dp.ApplicationCommandType.STRING, "name", "description", required=True)])
+def help(client : dp.Client, interaction : dp.Interaction):
+
+    # Respond with a message saying, "Hello, World!"
+    response = dp.InteractionResponseText(interaction=interaction, text="Hello, world!", ephemeral=True)
+    
+    # Create an action row.
+    actionRow = dp.ActionRow(client=client)
+
+    # Adds a button to the message with the option set by the user as the label
+    actionRow.addComponent(dp.Button("Click me!", dp.ButtonStyle.BLURPLE, client, "customID", callback=callback_function_here))
+    response.addActionRow(actionRow)
+    response.generateJSON()
+    
+    # Send the message to discord!
+    message = dp.Message(url=response.url, method=dp.HTTPMethods.POST, json=response.json, client=client)
+    client.messageQueue.append(message)
 
 client.syncApplicationCommands()
 client.run("BOT TOKEN HERE")
 ```
 
-```python
-# For the /help command, the callback function is called help, but can be called anything.
-# Instead of registering the commands as above, you can use a decorator as follows.
-@client.AppCommand(name="help", type=Enums.ApplicationCommand.SUB_COMMAND, description="my epic description", parameters = [ApplicationCommands.ApplicationCommandOption(Enums.ApplicationCommand.STRING, "test", "description", True)])
-def help(client : Client.Client, interaction : InteractionResponder.Interaction):
-
-    # Respond with a message saying, "Hello, World!"
-    response = InteractionResponder.InteractionResponseText(interaction=interaction, text="Hello, world!", ephemeral=True)
-    
-    # Create an action row.
-    actionRow = InteractionResponder.ActionRow(client=client)
-
-    # Adds a button to the message with the option set by the user as the label
-    actionRow.addComponent(InteractionResponder.Button(interaction.options[0]['value'], Enums.ButtonStyle.BLURPLE, client, "test1", callback=callback_test1))
-    response.addActionRow(actionRow)
-    response.generateJSON()
-    
-    # Send the message to discord!
-    message = Message.Message(url=response.url, method=Message.HTTPMethods.POST, json=response.json, client=client)
-    client.messageQueue.append(message)
-```
 
 ## Contributing
 
