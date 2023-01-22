@@ -3,11 +3,11 @@ import aiohttp
 import asyncio
 import json
 import random
-import ApplicationCommands
-import Message
+from .ApplicationCommands import ApplicationCommand, MessageComponentCallback
+from .Message import Message
 import logging
-import Logger
-import InteractionResponder
+from .Logger import CustomFormatter
+from .InteractionResponder import Interaction
 import string
 
 from typing import (
@@ -29,11 +29,11 @@ class Client:
     session_id = None
     functions = []
     ready_event_occurred : bool = False
-    commands : List[ApplicationCommands.ApplicationCommand] = []
+    commands : List[ApplicationCommand] = []
     application_id = None
-    messageQueue : List[Message.Message] = []
+    messageQueue : List[Message] = []
     logger : logging.Logger = None
-    message_callbacks : List[ApplicationCommands.MessageComponentCallback] = []
+    message_callbacks : List[MessageComponentCallback] = []
 
     # Implementing this class will allow users to create a websocket session with discord.
     def __init__(self, debug_level=logging.INFO) -> None:
@@ -57,7 +57,7 @@ class Client:
         self.logger.setLevel(debug_level)
         ch = logging.StreamHandler()
         ch.setLevel(debug_level)
-        ch.setFormatter(Logger.CustomFormatter())
+        ch.setFormatter(CustomFormatter())
         self.logger.addHandler(ch)
 
         pass
@@ -242,9 +242,9 @@ class Client:
                                 for command in self.commands:
                                     if command.name == message_data['d']['data']['name']:
                                         if 'options' in message_data['d']['data']:
-                                            command.function(client=self, interaction=InteractionResponder.Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token, options=message_data['d']['data']['options']))
+                                            command.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token, options=message_data['d']['data']['options']))
                                         else:
-                                            command.function(client=self, interaction=InteractionResponder.Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
+                                            command.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
 
                             if message_data['d']['type'] == 3:
                                 # An message component interaction was received!
@@ -253,7 +253,7 @@ class Client:
                                 for message_callback in self.message_callbacks:
                                     if message_callback.custom_id == message_data['d']['data']['custom_id']:
                                         #command.function(self, message_data['d']['id'], message_data['d']['token'])
-                                        message_callback.function(client=self, interaction=InteractionResponder.Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
+                                        message_callback.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
 
                             if message_data['d']['type'] == 5:
                                 # An modal interaction was received!
@@ -263,7 +263,7 @@ class Client:
                                     if message_callback.custom_id == message_data['d']['data']['custom_id']:
                                         #command.function(self, message_data['d']['id'], message_data['d']['token'])
                                         self.logger.debug("Found MODAL callback function.")
-                                        message_callback.function(client=self, interaction=InteractionResponder.Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
+                                        message_callback.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
 
                     if message_data['op'] == 1:
                         # The application should immediately send a heartbeat.
@@ -439,20 +439,20 @@ class Client:
         and then making a `Message` to be added onto the `messageQueue`.
 
         """
-        command = ApplicationCommands.ApplicationCommand(name, type, description, function, parameters)
+        command = ApplicationCommand(name, type, description, function, parameters)
         self.commands.append(command)
 
     def AppCommand(self, name, type, description, parameters = []):
         def decorator(fun):
             # Register the command here
-            command = ApplicationCommands.ApplicationCommand(name, type, description, fun, parameters)
+            command = ApplicationCommand(name, type, description, fun, parameters)
             self.commands.append(command)
             def wrapper(*args):
                 fun(*args)
             return wrapper
         return decorator
 
-    def getRegisteredCommands(self) -> List[ApplicationCommands.ApplicationCommand]:
+    def getRegisteredCommands(self) -> List[ApplicationCommand]:
         """
         Returns all registered commands. In the event that `syncCommands()` was called, these
         are the commands that would be synced.

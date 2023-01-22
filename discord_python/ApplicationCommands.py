@@ -1,5 +1,4 @@
 # Registers application commands and syncs them.
-import Client
 import aiohttp
 import asyncio
 

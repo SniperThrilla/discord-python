@@ -1,7 +1,7 @@
 # Allows users to easily create a response for an interaction.
-import Message
+from .Message import InteractionCallbackType
 import logging
-import ApplicationCommands
+from .ApplicationCommands import MessageComponentCallback
 
 from typing import (
     List
@@ -14,7 +14,7 @@ class Component():
 
     """
     custom_id : str = None
-    message_callback : ApplicationCommands.MessageComponentCallback = None
+    message_callback : MessageComponentCallback = None
     client = None
     callback_function = None
 
@@ -46,7 +46,7 @@ class Component():
         #self.custom_id = client.generateCustomID(custom_id)
         self.custom_id = custom_id
         self.callback_function = callback_function
-        self.message_callback = ApplicationCommands.MessageComponentCallback(self.custom_id, self.callback_function)
+        self.message_callback = MessageComponentCallback(self.custom_id, self.callback_function)
 
     def generateJSON(self):
         """
@@ -513,7 +513,7 @@ class InteractionResponseText(InteractionResponse):
         self.flag = flag
 
         self.json = {
-            "type": Message.InteractionCallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
+            "type": InteractionCallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
             "data": {
                 "content": text,
                 "flags": flag
@@ -592,7 +592,7 @@ class InteractionResponseText(InteractionResponse):
                 new_json.append(component.generateJSON())
 
         self.json = {
-            "type": Message.InteractionCallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
+            "type": InteractionCallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
             "data": {
                 "content": self.text,
                 "flags": self.flag,
@@ -648,14 +648,14 @@ class InteractionResponseModal(InteractionResponse):
 
 
         self.json = {
-            "type": Message.InteractionCallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
+            "type": InteractionCallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
             "data": {
                 "title": self.title,
                 "custom_id": self.custom_id
             }
         }
 
-        self.message_callback = ApplicationCommands.MessageComponentCallback(self.custom_id, callback)
+        self.message_callback = MessageComponentCallback(self.custom_id, callback)
         client.message_callbacks.append(self.message_callback)
 
     def addComponent(self, component : Component):
@@ -730,7 +730,7 @@ class InteractionResponseModal(InteractionResponse):
                 new_json.append(component.generateJSON())
 
         self.json = {
-            "type": Message.InteractionCallbackType.MODAL,
+            "type": InteractionCallbackType.MODAL,
             "data": {
                 "title": self.title,
                 "custom_id": self.custom_id,
