@@ -8,6 +8,11 @@ A discord API wrapper made for developing discord bots in python.
 - Automatic Gateway Integration
 - Low-level access to websockets
 
+## Limitations
+- Issues with reconnecting if disconnected.
+- Lack of voice support
+- Lack of other features.
+
 ## Installation
 
 Install the package using pip, or by cloning this repository.
@@ -46,7 +51,7 @@ def help(client : dp.Client, interaction : dp.Interaction):
     # Create an action row.
     actionRow = dp.ActionRow(client=client)
 
-    # Adds a button to the message with the option set by the user as the label
+    # Adds a button to the action row which is added to the message.
     actionRow.addComponent(dp.Button("Click me!", dp.ButtonStyle.BLURPLE, client, "customID", callback=callback_function_here))
     response.addActionRow(actionRow)
     response.generateJSON()

@@ -2,6 +2,7 @@
 from .Message import InteractionCallbackType
 import logging
 from .ApplicationCommands import MessageComponentCallback
+from .EmbedBuilder import Embed
 
 from typing import (
     List
@@ -481,6 +482,7 @@ class InteractionResponseText(InteractionResponse):
 
     components : List[Component] = []
     action_rows : List[ActionRow] = []
+    embeds : List[Embed] = []
     text : str = None
     flag : int = 0
 
@@ -505,6 +507,7 @@ class InteractionResponseText(InteractionResponse):
         self.text = text
         self.action_rows = []
         self.components = []
+        self.embeds = []
 
         flag = 0
         if ephemeral:
@@ -564,13 +567,28 @@ class InteractionResponseText(InteractionResponse):
         self.action_rows.append(action_row)
         self.generateJSON()
 
+    def addEmbed(self, embed : Embed):
+        """
+        Adds an embed to the response. 
+
+        Parameters
+        -------
+        embed: `Embed`
+            The embed that you want to attach to this response.
+
+        """
+
+        self.embeds.append(embed)
+        self.generateJSON()
+
     def generateJSON(self):
         """
         Generates the JSON to be set in a HTTP request to the API endpoint for the action row.
         Iterates through every component directly on this InteractionResponseText and all 
-        ActionRows and their children components. This should be called prior to using the 
-        `self.json` value, as this causes it to be updated with all of your components 
-        included, however this is automatically run when a Component or ActionRow are added.
+        ActionRows and their children components. This also generates the JSON for any embeds.
+        This should be called prior to using the `self.json` value, as this causes it to be 
+        updated with all of your components included, however this is automatically run when
+        a Component or ActionRow are added.
 
         Warning
         -------
@@ -583,23 +601,29 @@ class InteractionResponseText(InteractionResponse):
 
         """
 
-        new_json = []
+        component_json = []
         if len(self.action_rows) != 0 or len(self.components) != 0:
             for action_row in self.action_rows:
                 #print(action_row.generateJSON())
-                new_json.append(action_row.generateJSON())
+                component_json.append(action_row.generateJSON())
             for component in self.components:
-                new_json.append(component.generateJSON())
+                component_json.append(component.generateJSON())
+
+        embed_json = []
+        if len(self.embeds) != 0:
+            for embed in self.embeds:
+                embed_json.append(embed.generateJSON())
 
         self.json = {
             "type": InteractionCallbackType.CHANNEL_MESSAGE_WITH_SOURCE,
             "data": {
                 "content": self.text,
                 "flags": self.flag,
-                "components": new_json
+                "components": component_json,
+                "embeds": embed_json
             }
         }
-        #print(self.json)
+
         return self.json
 
 class InteractionResponseModal(InteractionResponse):

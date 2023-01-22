@@ -4,3 +4,4 @@ from .Enums import *
 from .InteractionResponder import *
 from .Logger import *
 from .Message import *
+from .EmbedBuilder import *

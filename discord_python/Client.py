@@ -35,6 +35,7 @@ class Client:
     messageQueue : List[Message] = []
     logger : logging.Logger = None
     message_callbacks : List[MessageComponentCallback] = []
+    reconnect : bool = False
 
     # Implementing this class will allow users to create a websocket session with discord.
     def __init__(self, debug_level=logging.INFO) -> None:
@@ -165,14 +166,16 @@ class Client:
         return, the bot will disconnect and your session will be closed.
 
         """
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())        
+        while self.reconnect:
+            self.reconnect = False
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())        
 
-        self.event_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.event_loop)
-        self.event_loop.run_until_complete(self.createWebsocketConnection(gateway_url))
-        self.event_loop.run_until_complete(self.runHandler())
-        self.event_loop.close()
-        self.session.close()
+            self.event_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.event_loop)
+            self.event_loop.run_until_complete(self.createWebsocketConnection(gateway_url))
+            self.event_loop.run_until_complete(self.runHandler())
+            self.event_loop.close()
+            self.session.close()
 
     async def runHandler(self):
         """
@@ -196,7 +199,7 @@ class Client:
         response_json = response.json()
         self.gateway_url = response_json['url']
         # As per discord documentation, the resume gateway should initially be the same.
-        self.resume_gateway_url = response_json['url']
+        # self.resume_gateway_url = response_json['url']
 
     async def createWebsocketConnection(self, gateway_url):
         """
@@ -224,6 +227,8 @@ class Client:
 
         """
         while True:
+            if self.reconnect:
+                return
             async for message in self.ws:
                 if message.type == aiohttp.WSMsgType.TEXT:
                     message_data = json.loads(message.data)
@@ -299,7 +304,14 @@ class Client:
         acknowledged, `self.heartbeats_sent` will also be set to True.
 
         """
+
+        if self.resume_gateway_url != None:
+            # Reconnecting
+            await self.ws.send_json({"op":6, "d":{"token": self.bot_token, "session_id": self.session_id, "seq": self.last_sequence}})
+
         while True:
+            if self.reconnect:
+                return
             if self.heartbeat_interval != None:
                 # This only runs if we have received the heartbeat interval. 
                 if self.first_heartbeat:
@@ -324,8 +336,11 @@ class Client:
         # Sends a packet with opcode 2 to identify the bot. Only sent when the first heartbeat has been sent.
         while True:
             if self.heartbeats_sent:
-                await self.ws.send_json({"op":2, "d":{"token": self.bot_token, "intents": 0, "properties": {"os": "Windows", "browser": "amongus", "device": "amongus"}}})
-                break
+                if self.resume_gateway_url == None:
+                    await self.ws.send_json({"op":2, "d":{"token": self.bot_token, "intents": 0, "properties": {"os": "Windows", "browser": "amongus", "device": "amongus"}}})
+                    break
+                else:
+                    break
             await asyncio.sleep(0)
         
     async def interactionQueue(self):
@@ -346,6 +361,8 @@ class Client:
             await asyncio.sleep(0)
         
         while True:
+            if self.reconnect: 
+                return
             if len(self.messageQueue) == 0:
                 await asyncio.sleep(0)
                 continue
@@ -368,6 +385,12 @@ class Client:
         This has not been implemented yet.
 
         """
+
+        # TODO: Check if reconnection is permitted.
+
+        # TODO: End this event loop and set self.reconnect to True
+        self.reconnect = True
+
         pass
 
     async def syncCommands(self) -> None:
