@@ -412,12 +412,14 @@ class Interaction:
     provide the necessary information for you to respond to an Interaction.
 
     """
+    user_id = None
+    guild_id = None
     interaction_id = None
     interaction_token = None
     bot_token = None
     options = []
 
-    def __init__(self, interaction_id, interaction_token, bot_token, options=[]) -> None:
+    def __init__(self, interaction_id, interaction_token, user_id, guild_id, bot_token, options=[]) -> None:
         """
         Creates an interaction object. This should not be manually called, as it provides no functionality
         other than for providing Interaction information to callback functions.
@@ -430,6 +432,10 @@ class Interaction:
         interaction_token: `str`
             Similar to the interaction_id, the interaction_token is necessary for responding to an Interaction and is 
             provided by discord when an interaction is received.
+        user_id: `str`
+            The user who created the Interaction.
+        guild_id: `str`
+            The guild where the interaction was created.
         bot_token: `str`
             This is the token by which your bot will authenticate its requests. This is taken from the `Client.Client`
             instance.
@@ -443,6 +449,8 @@ class Interaction:
         self.interaction_token = interaction_token
         self.bot_token = bot_token
         self.options = options
+        self.guild_id = guild_id
+        self.user_id = user_id
 
 class InteractionResponse:
     """

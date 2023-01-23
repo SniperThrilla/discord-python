@@ -36,20 +36,30 @@ class Client:
     logger : logging.Logger = None
     message_callbacks : List[MessageComponentCallback] = []
     reconnect : bool = False
+    voice_endpoint : str = None
+    quick_connect : bool = False
+    intents : int = 0
 
     # Implementing this class will allow users to create a websocket session with discord.
-    def __init__(self, debug_level=logging.INFO) -> None:
+    def __init__(self, intents=0, debug_level=logging.INFO, quickConnect : bool = False) -> None:
         """
         Creates a client to be used which the application will centre around.
         Logging levels are also determined here.
 
         Parameters
         ----------
+        intents: :class:`int`
+            The intents that the bot will authenticate with.
         debug_level: :class:`int`
             The level at which the debugger will be set. Defaults to `logging.INFO`.
             For debug purposes, set this to `logging.DEBUG`.
+        quick_connect: :class:`bool`
+            Determines whether the initial sleep before the first heartbeat is ignored or not.
         """
         
+        self.quick_connect = quickConnect
+        self.intents = intents
+
         self.functions = [self.websocketListener(),
             self.heartbeat(),
             self.identify(),
@@ -232,6 +242,7 @@ class Client:
             async for message in self.ws:
                 if message.type == aiohttp.WSMsgType.TEXT:
                     message_data = json.loads(message.data)
+                    self.logger.debug(message_data)
                     if message_data['op'] == 0:
                         # The application has received a dispatch event.
                         if message_data['t'] == 'READY':
@@ -239,6 +250,9 @@ class Client:
                             self.resume_gateway_url = message_data['d']['resume_gateway_url']
                             self.session_id = message_data['d']['session_id']
                             self.ready_event_occurred = True
+
+                        if message_data['t'] == 'VOICE_SERVER_UPDATE':
+                            self.voice_endpoint = message_data['d']['endpoint']
 
                         if message_data['t'] == 'INTERACTION_CREATE':
                             if message_data['d']['type'] == 2:
@@ -248,9 +262,9 @@ class Client:
                                 for command in self.commands:
                                     if command.name == message_data['d']['data']['name']:
                                         if 'options' in message_data['d']['data']:
-                                            command.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token, options=message_data['d']['data']['options']))
+                                            await command.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], message_data['d']['member']['user']['id'], message_data['d']['guild_id'], bot_token=self.bot_token, options=message_data['d']['data']['options']))
                                         else:
-                                            command.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
+                                            await command.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], message_data['d']['member']['user']['id'], message_data['d']['guild_id'], bot_token=self.bot_token))
 
                             if message_data['d']['type'] == 3:
                                 # An message component interaction was received!
@@ -259,7 +273,7 @@ class Client:
                                 for message_callback in self.message_callbacks:
                                     if message_callback.custom_id == message_data['d']['data']['custom_id']:
                                         #command.function(self, message_data['d']['id'], message_data['d']['token'])
-                                        message_callback.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
+                                        await message_callback.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
 
                             if message_data['d']['type'] == 5:
                                 # An modal interaction was received!
@@ -269,7 +283,7 @@ class Client:
                                     if message_callback.custom_id == message_data['d']['data']['custom_id']:
                                         #command.function(self, message_data['d']['id'], message_data['d']['token'])
                                         self.logger.debug("Found MODAL callback function.")
-                                        message_callback.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
+                                        await message_callback.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
 
                     if message_data['op'] == 1:
                         # The application should immediately send a heartbeat.
@@ -290,7 +304,6 @@ class Client:
                     if message_data['s'] != None:
                         self.last_sequence = message_data['s']
 
-                    self.logger.debug(message_data)
                 if message.type == aiohttp.WSMsgType.CLOSE:
                     self.logger.critical(f"CLOSE PACKET RECEIVED {message.data}")
                 if message.type == aiohttp.WSMsgType.ERROR:
@@ -316,9 +329,12 @@ class Client:
                 # This only runs if we have received the heartbeat interval. 
                 if self.first_heartbeat:
                     self.first_heartbeat = False
-                    interval = random.uniform(0, 1)
-                    self.logger.info(f"Sleeping for {interval} * {self.heartbeat_interval} = {interval * self.heartbeat_interval / 1000} seconds...")
-                    await asyncio.sleep(interval * self.heartbeat_interval / 1000)
+                    if not self.quick_connect:
+                        interval = random.uniform(0, 1)
+                        self.logger.info(f"Sleeping for {interval} * {self.heartbeat_interval} = {interval * self.heartbeat_interval / 1000} seconds...")
+                        await asyncio.sleep(interval * self.heartbeat_interval / 1000)
+                    else:
+                        self.logger.info("Quick_connect enabled, skipping initial sleep before first heartbeat.")
                 else:
                     self.logger.info(f"Sleeping for {self.heartbeat_interval / 1000} seconds...")
                     await asyncio.sleep(self.heartbeat_interval / 1000)
@@ -337,7 +353,7 @@ class Client:
         while True:
             if self.heartbeats_sent:
                 if self.resume_gateway_url == None:
-                    await self.ws.send_json({"op":2, "d":{"token": self.bot_token, "intents": 0, "properties": {"os": "Windows", "browser": "amongus", "device": "amongus"}}})
+                    await self.ws.send_json({"op":2, "d":{"token": self.bot_token, "intents": self.intents, "properties": {"os": "Windows", "browser": "amongus", "device": "amongus"}}})
                     break
                 else:
                     break
@@ -502,3 +518,59 @@ class Client:
 
     def generateCustomID(self, custom_id):
         return ''.join(random.choice(string.ascii_lowercase) for i in range(20)) + "_" + custom_id
+
+    async def createVoiceWebsocketConnection(self, guild_id, channel_id, self_mute, self_deaf):
+
+        # TODO: Send websocket packet to get the endpoint to connect to.
+        self.logger.debug("Creating voice websocket connection.")
+
+        #await asyncio.sleep(5)
+
+        payload = {"op": 4, "d": {"guild_id": guild_id, "channel_id": channel_id, "self_mute": self_mute, "self_deaf": self_deaf}}
+        #payload = {"op": 4, "d": {"guild_id": "828553142604922951", "channel_id": "828553142604922951", "self_mute": self_mute, "self_deaf": self_deaf}}
+
+        self.logger.debug(f"PAYLOAD: {payload}")
+
+        await self.ws.send_json(payload)
+
+        # TODO: Receive endpoint information.
+
+        self.logger.debug("Sent VOICE UPDATE request.")
+
+        while True:
+            if self.voice_endpoint != None:
+                break
+            await asyncio.sleep(0)
+
+        # TODO: Establish a voice websocket connection.
+
+        self.logger.debug(f"Received voice endpoint: {self.voice_endpoint}")
+
+        # TODO: Run asyncio.create_task() to communicate with it.
+        asyncio.create_task(self.createVoiceWebsocket(self.voice_endpoint))
+
+        self.voice_endpoint = None
+        pass
+
+    async def getGuildMember(self, guild_id : str, user_id : str):
+        async with self.session.get(self.discord_http_api_base + f"/guilds/{guild_id}/members/{user_id}", headers={"Authorization": f"Bot {self.bot_token}"}) as resp:
+            json_body = await resp.json()
+        return json_body
+
+    async def getChannel(self, channel_id : str):
+        async with self.session.get(self.discord_http_api_base + f"/channels/{channel_id}", headers={"Authorization": f"Bot {self.bot_token}"}) as resp:
+            json_body = await resp.json()
+        return json_body
+
+    async def createVoiceWebsocket(self, url):
+        # TODO: Create a new websocket and save it
+        voice_ws = await self.session.ws_connect("wss://" + url)
+
+        # TODO: Create a new listener
+
+        # TODO: Create a new sender
+
+        # TODO: Make a way to send information through websocket from other functions.
+        
+        pass
+

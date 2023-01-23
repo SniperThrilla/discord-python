@@ -5,6 +5,7 @@ A discord API wrapper made for developing discord bots in python.
 - Application Commands
 - Message Components
 - Modals
+- Embeds
 - Automatic Gateway Integration
 - Low-level access to websockets
 
@@ -12,6 +13,9 @@ A discord API wrapper made for developing discord bots in python.
 - Issues with reconnecting if disconnected.
 - Lack of voice support
 - Lack of other features.
+
+## In Progress
+- Voice client functionality
 
 ## Installation
 
@@ -43,7 +47,7 @@ client = dp.Client()
 # For the /help command, the callback function is called help, but can be called anything.
 # Instead of registering the commands with the registerApplicationCommand() function, you can use a decorator as follows.
 @client.AppCommand(name="help", description="description", parameters = [dp.ApplicationCommandOption(dp.ApplicationCommandType.STRING, "name", "description", required=True)])
-def help(client : dp.Client, interaction : dp.Interaction):
+async def help(client : dp.Client, interaction : dp.Interaction):
 
     # Respond with a message saying, "Hello, World!"
     response = dp.InteractionResponseText(interaction=interaction, text="Hello, world!", ephemeral=True)
