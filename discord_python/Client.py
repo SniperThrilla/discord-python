@@ -10,12 +10,15 @@ from .Logger import CustomFormatter
 from .InteractionResponder import Interaction
 import string
 from .Enums import ApplicationCommandType
+from .Voice import VoiceClient
 import socket
+
 
 from typing import (
     List,
     Dict,
-    Tuple
+    Tuple,
+    Callable
 )
 
 class Client:
@@ -45,6 +48,7 @@ class Client:
     heartbeat_intervals : Dict[int, int] = {}
     voice_websockets : Dict[int, aiohttp.ClientWebSocketResponse] = {}
     voice_identifications : Dict[int, Tuple[int, str, int, List[str]]] = {}
+    voice_clients : Dict[str, VoiceClient] = {}
 
     # Implementing this class will allow users to create a websocket session with discord.
     def __init__(self, intents=0, debug_level=logging.INFO, quickConnect : bool = False) -> None:
@@ -531,39 +535,6 @@ class Client:
     def generateCustomID(self, custom_id):
         return ''.join(random.choice(string.ascii_lowercase) for i in range(20)) + "_" + custom_id
 
-    async def createVoiceWebsocketConnection(self, guild_id, channel_id, self_mute, self_deaf):
-
-        # TODO: Send websocket packet to get the endpoint to connect to.
-        self.logger.debug("Creating voice websocket connection.")
-
-        #await asyncio.sleep(5)
-
-        payload = {"op": 4, "d": {"guild_id": guild_id, "channel_id": channel_id, "self_mute": self_mute, "self_deaf": self_deaf}}
-        #payload = {"op": 4, "d": {"guild_id": "828553142604922951", "channel_id": "828553142604922951", "self_mute": self_mute, "self_deaf": self_deaf}}
-
-        self.logger.debug(f"PAYLOAD: {payload}")
-
-        await self.ws.send_json(payload)
-
-        # TODO: Receive endpoint information.
-
-        self.logger.debug("Sent VOICE UPDATE request.")
-
-        while True:
-            if self.voice_endpoint != None:
-                break
-            await asyncio.sleep(0)
-
-        # TODO: Establish a voice websocket connection.
-
-        self.logger.debug(f"Received voice endpoint: {self.voice_endpoint}")
-
-        # TODO: Run asyncio.create_task() to communicate with it.
-        asyncio.create_task(self.createVoiceWebsocket(self.voice_endpoint))
-
-        self.voice_endpoint = None
-        pass
-
     async def getGuildMember(self, guild_id : str, user_id : str):
         async with self.session.get(self.discord_http_api_base + f"/guilds/{guild_id}/members/{user_id}", headers={"Authorization": f"Bot {self.bot_token}"}) as resp:
             json_body = await resp.json()
@@ -574,137 +545,9 @@ class Client:
             json_body = await resp.json()
         return json_body
 
-    async def voiceWSHeartbeat(self, ws : aiohttp.ClientWebSocketResponse, ws_index : int):
-        """
-        Sends heartbeats at a regular interval through the websocket connection.
-
-        """
-
-        while True:
-                payload = {"op":3, "d":random.randint(0, 10000000)}
-                self.logger.debug(f"VOICE PAYLOAD: {payload}")
-                await ws.send_json(payload)
-                self.logger.info(f"Sleeping for {self.heartbeat_intervals[ws_index] / 1000} seconds...")
-                await asyncio.sleep(self.heartbeat_intervals[ws_index] / 1000)
-                # Send the heartbeat with the previous sequence value to keep the connection alive.
-
-    async def createVoiceWSListener(self, ws : aiohttp.ClientWebSocketResponse, ws_index : int):
-        while True:
-            async for message in ws:
-                self.logger.debug(f"Voice: {message.data}")
-                if message.type == aiohttp.WSMsgType.TEXT:
-                    message_json = message.json()
-                    if message_json['op'] == 2:
-                        # Ready event
-                        data = message_json['d']
-                        self.voice_identifications[ws_index] = [data['ssrc'], data['ip'], data['port'], data['modes']]
-                    if message_json['op'] == 3:
-                        self.logger.warning(f"Weird heartbeat acknowledgement?! Are we using the correct API version? ID:{ws_index}")
-                    if message_json['op'] == 6:
-                        self.logger.debug(f"Voice heartbeat acknowledeged ID:{ws_index}")
-                    if message_json['op'] == 8:
-                        # Heartbeat interval
-                        if ws_index in self.heartbeat_intervals:
-                            # This has already been registered before, so just updating the interval, not creating a new task.
-                            self.heartbeat_intervals[ws_index] = message_json['d']['heartbeat_interval']
-                        else:
-                            self.logger.debug("Initial heartbeat interval sent.")
-                            self.heartbeat_intervals[ws_index] = message_json['d']['heartbeat_interval']
-                            loop = asyncio.get_running_loop()
-                            loop.create_task(self.voiceWSHeartbeat(ws, ws_index))
-                        pass
-
-    async def createVoiceWebsocket(self, url):
-        # TODO: Create a new websocket and save it
-        voice_ws = await self.session.ws_connect("wss://" + url + "?v=4")
-        ws_index = len(self.voice_websockets.keys())
-        self.voice_websockets[ws_index] = voice_ws
-
-        # TODO: Identify
-        identify_payload = {
-        "op": 0,
-        "d": {
-            "server_id": self.voice_guild,
-            "user_id": self.voice_user_id,
-            "session_id": self.voice_session,
-            "token": self.voice_token
-            }
-        }
-
-        await voice_ws.send_json(identify_payload)
-
-        self.voice_guild = None
-        self.voice_user_id = None
-        self.voice_session = None
-        self.voice_token = None
-
-        # TODO: Create a new listener
-        loop = asyncio.get_running_loop()
-        loop.create_task(self.createVoiceWSListener(voice_ws, ws_index))
-
-        # TODO: Establish UDP connection
-        # socket library seems useful
-        sock = socket.socket(family=socket.AddressFamily.AF_INET, type=socket.SOCK_DGRAM)
-
-        # Wait for identify payload
-        while ws_index not in self.voice_identifications:
-            await asyncio.sleep(0)
-
-        # TODO: Connect to UDP port provided
-        sock.connect((self.voice_identifications[ws_index][1], self.voice_identifications[ws_index][2]))
-
-        # TODO: Send the IP Discovery package
-        #byte_array = bytearray(b'\x01\x02')
-        #byte_array.extend(int(70).to_bytes(length=2, byteorder="big"))
-        #byte_array.extend(self.voice_identifications[ws_index][0].to_bytes(length=4, byteorder="big"))
-        #b_str = bytes(self.voice_identifications[ws_index][1], encoding='utf-8')
-        #byte_array.extend(b_str)
-        #byte_array.extend(b"\x00" * (64 - len(b_str)))
-        #byte_array.extend(self.voice_identifications[ws_index][2].to_bytes(length=2, byteorder="big"))
-
-        byte_array = bytearray(b'\x00\x01')
-        byte_array.extend(int(70).to_bytes(2, byteorder="big"))
-        print(self.voice_identifications[ws_index][0])
-        byte_array.extend(int(self.voice_identifications[ws_index][0]).to_bytes(4, byteorder="big"))
-        byte_array.extend(b"\x00" * 64)
-        byte_array.extend(b"\x00" * 2)
-        
-        self.logger.debug(f"SENING UDP PACKET: {byte_array.hex()}")
-
-        result = sock.send(byte_array)
-
-        self.logger.debug(f"Sent byte array through UDP socket. RESULT: {result}")
-
-        result = sock.recv(2048)
-        print(result.hex())
-
-        method = result[:2]
-        length = result[2:4]
-        ssrc = result[4:8]
-        address = result[8:72]
-        port = result[72:74]
-        local_ip = address.decode('utf-8')
-        local_port = int.from_bytes(port, 'big')
-
-        print(f"IP Discovery successful, our External IP and Port: {local_ip}:{local_port}")
-
-        # TODO: Send OP 1 SELECT PROTOCAL with our found external IP and PORT
-
-        select_protocol_payload = {
-            "op": 1,
-            "d": {
-                "protocol": "udp",
-                "data": {
-                    "address": local_ip,
-                    "port": local_port,
-                    "mode": "xsalsa20_poly1305_lite"
-                }
-            }
-        }
-
-        await voice_ws.send_json(select_protocol_payload)
-
-        print(f"Select protocol sent.")
-        
-        pass
-
+    async def getVoiceClient(self, guild_id, channel_id, self_mute, self_deaf):
+        if guild_id not in self.voice_clients:
+            voice_client = VoiceClient(guild_id, channel_id, self_mute, self_deaf, self)
+            self.voice_clients[guild_id] = voice_client
+            return voice_client
+        return self.voice_clients[guild_id]

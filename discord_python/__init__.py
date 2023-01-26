@@ -5,3 +5,4 @@ from .InteractionResponder import *
 from .Logger import *
 from .Message import *
 from .EmbedBuilder import *
+from .Voice import *
