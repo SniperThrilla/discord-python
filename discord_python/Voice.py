@@ -81,6 +81,8 @@ class VoiceClient():
     sequence : int = 0
     timestamp : int = 0
 
+    is_playing : bool = False
+
     def __init__(self, guild_id, channel_id, self_mute, self_deaf, client) -> None:
         self.client = client
         self.logger = client.logger
@@ -259,9 +261,13 @@ class VoiceClient():
             await asyncio.sleep(0)
             #print(resp)
 
-    async def play(self, source : FFmpegHandler):
+    async def do_play(self, source : FFmpegHandler):
         while not self.ready:
             await asyncio.sleep(0)
+
+        self.logger.debug('is playing')
+
+        self.is_playing = True
 
         await self.start_speaking()
 
@@ -282,6 +288,8 @@ class VoiceClient():
             await asyncio.sleep(max(0, next_time - time.time()))
             next_time = start + 0.02 * self.iteration
         print(f"Played for {time.time()-start} seconds.")
+
+        self.is_playing = False
 
     async def send_audio_packet(self, data : bytes):
 
@@ -314,6 +322,11 @@ class VoiceClient():
         if self.sequence >= 2 ** 16: self.sequence = 0
         if self.timestamp >= 2 ** 32: self.timestamp = 0
         pass
+
+    async def play(self, source: FFmpegHandler):
+        loop = asyncio.get_running_loop()
+        loop.create_task(self.do_play(source))
+        await asyncio.sleep(1)
 
     async def start_speaking(self):
 

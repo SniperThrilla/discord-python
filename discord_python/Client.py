@@ -271,6 +271,7 @@ class Client:
                             self.voice_guild = message_data['d']['guild_id']
 
                         if message_data['t'] == 'INTERACTION_CREATE':
+                            loop = asyncio.get_running_loop()
                             if message_data['d']['type'] == 2:
                                 # An application command was received! Wahoo!
 
@@ -278,9 +279,9 @@ class Client:
                                 for command in self.commands:
                                     if command.name == message_data['d']['data']['name']:
                                         if 'options' in message_data['d']['data']:
-                                            await command.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], message_data['d']['member']['user']['id'], message_data['d']['guild_id'], bot_token=self.bot_token, options=message_data['d']['data']['options']))
+                                            loop.create_task(command.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], message_data['d']['member']['user']['id'], message_data['d']['guild_id'], bot_token=self.bot_token, options=message_data['d']['data']['options'])))
                                         else:
-                                            await command.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], message_data['d']['member']['user']['id'], message_data['d']['guild_id'], bot_token=self.bot_token))
+                                            loop.create_task(command.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], message_data['d']['member']['user']['id'], message_data['d']['guild_id'], bot_token=self.bot_token)))
 
                             if message_data['d']['type'] == 3:
                                 # An message component interaction was received!
@@ -289,7 +290,7 @@ class Client:
                                 for message_callback in self.message_callbacks:
                                     if message_callback.custom_id == message_data['d']['data']['custom_id']:
                                         #command.function(self, message_data['d']['id'], message_data['d']['token'])
-                                        await message_callback.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
+                                        loop.create_task(message_callback.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token)))
 
                             if message_data['d']['type'] == 5:
                                 # An modal interaction was received!
@@ -299,7 +300,7 @@ class Client:
                                     if message_callback.custom_id == message_data['d']['data']['custom_id']:
                                         #command.function(self, message_data['d']['id'], message_data['d']['token'])
                                         self.logger.debug("Found MODAL callback function.")
-                                        await message_callback.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token))
+                                        loop.create_task(message_callback.function(client=self, interaction=Interaction(message_data['d']['id'], message_data['d']['token'], bot_token=self.bot_token)))
 
                     if message_data['op'] == 1:
                         # The application should immediately send a heartbeat.
