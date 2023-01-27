@@ -6,6 +6,7 @@ A discord API wrapper made for developing discord bots in python.
 - Message Components
 - Modals
 - Embeds
+- Voice support
 - Automatic Gateway Integration
 - Low-level access to websockets
 
@@ -15,7 +16,7 @@ A discord API wrapper made for developing discord bots in python.
 - Lack of other features.
 
 ## In Progress
-- Voice client functionality
+- Rate limiting
 
 ## Installation
 
@@ -66,6 +67,29 @@ async def help(client : dp.Client, interaction : dp.Interaction):
 
 client.syncApplicationCommands()
 client.run("BOT TOKEN HERE")
+```
+
+A simple command for playing audio files or urls in a given voice channel.
+
+```python
+# Creates a command named voice with a channel parameter/
+@client.AppCommand(name="voice", description="Play audio in a voice channel.", parameters=[dp.ApplicationCommandOption(dp.ApplicationCommandType.CHANNEL, "voice-channel", "The voice channel to join.", True)])
+async def voice(client: dp.Client, interaction: dp.Interaction):
+    # Responds to the command with a message
+    response = dp.InteractionResponseText(interaction, "Responded.", True)
+    message = dp.Message(url=response.url, method=dp.HTTPMethods.POST, json=response.json, client=client)
+    client.messageQueue.append(message)
+
+    # Gets the channel information of the provided channel
+    channel = await client.getChannel(interaction.options[0]['value'])
+    guild_id = channel['guild_id']
+
+    # Creates a voice client (handles the creation of a new websocket and UDP connection)
+    vc = await client.getVoiceClient(guild_id, interaction.options[0]['value'], False, False)
+
+    # Plays a file or URL in the voice channel.
+    await vc.play(dp.FFmpegOpus("file.mp3"))
+
 ```
 
 
