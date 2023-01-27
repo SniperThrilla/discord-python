@@ -72,7 +72,7 @@ client.run("BOT TOKEN HERE")
 A simple command for playing audio files or urls in a given voice channel.
 
 ```python
-# Creates a command named voice with a channel parameter/
+# Creates a command named voice with a channel parameter.
 @client.AppCommand(name="voice", description="Play audio in a voice channel.", parameters=[dp.ApplicationCommandOption(dp.ApplicationCommandType.CHANNEL, "voice-channel", "The voice channel to join.", True)])
 async def voice(client: dp.Client, interaction: dp.Interaction):
     # Responds to the command with a message
