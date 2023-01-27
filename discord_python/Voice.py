@@ -287,6 +287,8 @@ class VoiceClient():
             await self.send_audio_packet(data)
             await asyncio.sleep(max(0, next_time - time.time()))
             next_time = start + 0.02 * self.iteration
+        for i in range(5):
+            await self.send_silence_packet()
         print(f"Played for {time.time()-start} seconds.")
 
         self.is_playing = False
@@ -316,6 +318,37 @@ class VoiceClient():
         # TODO: Send the packet
         result = self.sock.send(packet)
         self.logger.debug(f"Sent voice packet of {result} bytes")
+
+        self.sequence += 1
+        self.timestamp += 960
+        if self.sequence >= 2 ** 16: self.sequence = 0
+        if self.timestamp >= 2 ** 32: self.timestamp = 0
+        pass
+
+    async def send_silence_packet(self):
+        # TODO: Encrypt audio data with PyNaCl
+        while self.secret_key == None:
+            await asyncio.sleep(0)
+
+        header = bytearray(b'\x80\x78')
+        header.extend(int(self.sequence).to_bytes(2, byteorder="big"))
+        header.extend(int(self.timestamp).to_bytes(4, byteorder="big"))
+        header.extend(int(self.ssrc).to_bytes(4, byteorder="big"))
+
+        nonce = bytearray(24)
+        nonce[:12] = header
+
+        box = nacl.secret.SecretBox(bytes(self.secret_key))
+        encrypted_data = box.encrypt(bytes(bytearray(b'\xF8\xFF\xFE')), bytes(nonce)).ciphertext
+
+        # TODO: Craft the packet to be sent
+        packet = bytearray()
+        packet.extend(header)
+        packet.extend(encrypted_data)
+
+        # TODO: Send the packet
+        result = self.sock.send(packet)
+        self.logger.debug(f"Sent silence voice packet of {result} bytes")
 
         self.sequence += 1
         self.timestamp += 960
